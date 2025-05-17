@@ -10,7 +10,7 @@ public class BirdSorter : MonoBehaviour
 {
     float birdPlace;
     int t; // temporary variable
-    int countRows, levelNumber;
+    int countRows, levelNumber, musicOn;
     Vector2 ray;
     RaycastHit2D hit;
     GameObject tempRow, hitRow, tempBird;
@@ -18,12 +18,13 @@ public class BirdSorter : MonoBehaviour
     Dictionary<GameObject, List<GameObject>> dictRows, startDictRows;
     Dictionary<string, GameObject> allMyGameObjects;
     public GameObject[] birdTypes;
-    public GameObject birdRow, victoryText, nextLevelButton, levelCounter;
+    public GameObject birdRow, victoryText, nextLevelButton, levelCounter, square;
     string fileLevel, fileSave;
     string[] content;
+    private AudioSource soundPlayer;
+    public AudioClip backTheme, victoryTheme;
 
-
-    void Start()
+    void Awake()
     {
         Application.targetFrameRate = 60;
 
@@ -33,24 +34,20 @@ public class BirdSorter : MonoBehaviour
         // Checking if file exists
         if (!File.Exists(fileLevel))
         {
-            File.WriteAllText(fileLevel, "1 4");
+            File.WriteAllText(fileLevel, "1 4 1");
             File.WriteAllText(fileSave, "");
         }
 
         // Reading file with levels
         content = File.ReadAllText(fileLevel).Trim().Split(" ");
-    
+
         // Trying to read integer
         if (!int.TryParse(content[0], out levelNumber))
-        {
-            Debug.Log("ERROR: File does not contain a number.");
             return;
-        }
         if (!int.TryParse(content[1], out countRows))
-        {
-            Debug.Log("ERROR: File does not contain a number.");
             return;
-        }
+        if (content.Length > 2 && !int.TryParse(content[2], out musicOn))
+            return;
 
         levelCounter.GetComponent<Text>().text = $"LEVEL {levelNumber}";
 
@@ -70,11 +67,21 @@ public class BirdSorter : MonoBehaviour
                 allBirds.Add(tempBird);
                 allMyGameObjects.Add(tempBird.name, tempBird);
             }
-        
+
         if (levelNumber == 1)
             CreateLevel();
         ReadLevel();
         PlaceBirds();
+        
+        soundPlayer = GetComponent<AudioSource>();
+        if (musicOn == 1)
+        {
+            soundPlayer.clip = backTheme;
+            soundPlayer.Play();
+        }
+        else
+            musicOn = 0;
+
     }
 
 
@@ -89,23 +96,23 @@ public class BirdSorter : MonoBehaviour
         {
             ray = Camera.main.ScreenToWorldPoint(Input.touches[0].position);
             hit = Physics2D.Raycast(ray, Vector3.forward);
-            
+
             if (currentBirds.Count == 0 && hit.transform.CompareTag("Row"))
             {
                 // if there is birds, select all the similar in a row
                 tempRow = hit.transform.gameObject;
                 t = dictRows[tempRow].Count;
                 if (t > 0)
-                    currentBirds.Add(dictRows[tempRow][t-1]);
+                    currentBirds.Add(dictRows[tempRow][t - 1]);
                 for (int i = t - 1; i > 0; i--)
                     if (dictRows[hit.transform.gameObject].Count > 0)
                     {
-                        if (dictRows[tempRow][i].tag == dictRows[tempRow][i-1].tag)
-                            currentBirds.Add(dictRows[tempRow][i-1]);
+                        if (dictRows[tempRow][i].tag == dictRows[tempRow][i - 1].tag)
+                            currentBirds.Add(dictRows[tempRow][i - 1]);
                         else
                             break;
                     }
-                
+
                 foreach (var v in currentBirds)
                 {
                     v.transform.GetComponent<SpriteRenderer>().color = Color.green;
@@ -119,7 +126,7 @@ public class BirdSorter : MonoBehaviour
                 {
                     v.transform.GetComponent<SpriteRenderer>().color = Color.white;
 
-                    if (t < 4 && hitRow != tempRow && (t == 0 || dictRows[hitRow][t-1].tag == v.tag))
+                    if (t < 4 && hitRow != tempRow && (t == 0 || dictRows[hitRow][t - 1].tag == v.tag))
                     {
                         dictRows[hitRow].Add(v);
                         dictRows[tempRow].Remove(v);
@@ -148,10 +155,11 @@ public class BirdSorter : MonoBehaviour
                 RestartBirds();
             }
             else if (hit.transform.CompareTag("NextLevel"))
-            {
-                StopAllCoroutines();
-                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-            }
+                SceneManager.LoadSceneAsync(SceneManager.GetActiveScene().buildIndex);
+            
+            else if (hit.transform.CompareTag("Menu"))
+                SetMusicSettings();
+            
             else if (currentBirds.Count > 0)
             {
                 foreach (var v in currentBirds)
@@ -246,8 +254,7 @@ public class BirdSorter : MonoBehaviour
         fileStream.Close();
         */
 
-        File.WriteAllText(fileSave, "");
-        StreamWriter fileStream = new StreamWriter(fileSave, true);
+        StreamWriter fileStream = new StreamWriter(fileSave, false);
         List<string> strings = new List<string>();
 
         for (int i = 0; i < 4 * (countRows - 2); i++)
@@ -279,7 +286,7 @@ public class BirdSorter : MonoBehaviour
             {
                 allMyGameObjects.Add(tempRow.name, tempRow);
                 string line = fileStream.ReadLine();
-                
+
                 // creating temporary birds list for current row, reading from fileSave
                 content = line.Trim().Split(" ");
                 foreach (string s in content)
@@ -307,17 +314,57 @@ public class BirdSorter : MonoBehaviour
             }
     }
 
+    void SetMusicSettings()
+    {
+        if (musicOn == 0)
+        {
+            musicOn = 1;
+            soundPlayer.clip = backTheme;
+            soundPlayer.Play();
+        }
+        else
+        {
+            musicOn = 0;
+            soundPlayer.clip = null;
+        }
+        // Saving music settings
+        File.WriteAllText(fileLevel, $"{levelNumber} {countRows} {musicOn}");
+    }
+
+    IEnumerator VictoryEffect()
+    {
+        SpriteRenderer alpha = square.GetComponent<SpriteRenderer>();
+        for (float i = 0; i < 0.5f; i += 0.05f)
+        {
+            alpha.color = new Color(0, 0.2f, 0.1f, i);
+            yield return null;
+        }
+        GameObject victoryWindow = Instantiate(victoryText);
+        victoryWindow.transform.localScale = new Vector3(0, 0, 0);
+
+        for (float i = 0; i < 0.75f; i += 0.05f)
+        {
+            victoryWindow.transform.localScale = new Vector3(i, i, i);
+            yield return null;
+        }
+        for (float i = 0.75f; i > 0.7f; i -= 0.05f)
+        {
+            victoryWindow.transform.localScale = new Vector3(i, i, i);
+            yield return null;
+        }
+    }
+
     void Victory()
     {
+        soundPlayer.PlayOneShot(victoryTheme, musicOn * 0.6f);
         if (levelNumber < 3)
             countRows = 5;
         else if (levelNumber < 10)
             countRows = Random.Range(6, 8);
         else
             countRows = Random.Range(7, 10);
-        File.WriteAllText(fileLevel, $"{++levelNumber} {countRows}");
+        File.WriteAllText(fileLevel, $"{++levelNumber} {countRows} {musicOn}");
         CreateLevel();
-        Instantiate(victoryText);
-        Instantiate(nextLevelButton);
+        StartCoroutine(VictoryEffect());
     }
 }

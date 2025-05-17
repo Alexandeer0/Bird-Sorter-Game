@@ -15,6 +15,7 @@ TagManager:
   - Bird6
   - Bird7
   - Bird8
+  - Menu
   layers:
   - Default
   - TransparentFX
