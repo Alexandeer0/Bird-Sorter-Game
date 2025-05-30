@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using UnityEngine.Advertisements;
+using System;
 
 public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnityAdsLoadListener, IUnityAdsShowListener
 {
@@ -130,7 +131,7 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
             return;
 
         levelCounter.GetComponent<Text>().text = $"LEVEL {levelNumber}";
-        Random.InitState(levelNumber);
+        UnityEngine.Random.InitState(levelNumber);
 
         allBirds = new List<GameObject>();
         tempBirds = new List<GameObject>();
@@ -267,18 +268,27 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
     //////////////////////////////////////////////////////////////////////////
     //////////                  Game Ended Here                     //////////
     //////////////////////////////////////////////////////////////////////////
-    
+
 
     IEnumerator BirdFly(GameObject hit, GameObject curBird)
     {
         int numBirds = dictRows[hit].Count - 1;
-        Vector3 pos = new Vector3(0.2f + hit.transform.position.x + birdPlace * (-2 + numBirds), hit.transform.position.y + 0.3f, 0);
-        while (Vector3.Distance(pos, curBird.transform.position) > 0.1f)
+        Vector3 pos;
+        int hitName = Convert.ToInt16(hit.name[3]);
+        if (hitName % 2 == 0)
+            pos = new Vector3(0.2f + hit.transform.position.x + birdPlace * (-2 + numBirds), hit.transform.position.y + 0.15f, 0);
+        else
+            pos = new Vector3(0.2f + hit.transform.position.x + birdPlace * (-2 + numBirds), hit.transform.position.y + 0.15f, 0);
+        while (Vector3.Distance(pos, curBird.transform.position) > 0.25f)
         {
-            curBird.transform.Translate(new Vector3(pos.x - curBird.transform.position.x, pos.y - curBird.transform.position.y, 0).normalized * Time.deltaTime * 5);
+            curBird.transform.Translate(new Vector3(pos.x - curBird.transform.position.x, pos.y - curBird.transform.position.y, 0).normalized * Time.deltaTime * 4);
             yield return null;
         }
         curBird.transform.position = pos;
+        if (hitName % 2 == 0)
+            curBird.GetComponent<SpriteRenderer>().flipX = false;
+        else
+            curBird.GetComponent<SpriteRenderer>().flipX = true;
     }
 
     void RestartBirds()
@@ -296,8 +306,16 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
                     t = 0;
                     foreach (var v in l)
                     {
-                        dictRows[k].Add(v);
-                        v.transform.position = new Vector3(0.3f + k.transform.position.x + birdPlace * (-2 + t++), k.transform.position.y + 0.3f, 0);
+                        if (Convert.ToInt16(k.name[3]) % 2 == 0)
+                        {
+                            v.transform.position = new Vector3(0.2f + k.transform.position.x + birdPlace * (-2 + t++), k.transform.position.y + 0.15f, 0);
+                            v.GetComponent<SpriteRenderer>().flipX = false;
+                        }
+                        else
+                        {
+                            v.transform.position = new Vector3(-0.2f + k.transform.position.x + birdPlace * (2 - t++), k.transform.position.y + 0.15f, 0);
+                            v.GetComponent<SpriteRenderer>().flipX = true;
+                        }
                     }
                 }
             }
@@ -306,48 +324,6 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
 
     void CreateLevel()
     {   
-        /*
-        for (int i = 0; i < countRows; i++)
-        {
-            tempRow = Instantiate(birdRow, new Vector3(-0.4f, 3.2f - i, 0), transform.rotation);
-            tempRow.name = "Row" + i;
-            dictRows.Add(tempRow, new List<GameObject>());
-            startDictRows.Add(tempRow, new List<GameObject>());
-            if (i < countRows - 2)
-            {
-                allMyGameObjects.Add(tempRow.name, tempRow);
-                for (int j = 0; j < 4; j++)
-                {
-                    // creating temporary birds list for current row, then deleting used birds from first list
-                    t = Random.Range(0, allBirds.Count);
-                    tempBirds.Add(allBirds[t]);
-                    allBirds.RemoveAt(t);
-                }
-                foreach (var item in tempBirds)
-                {
-                    dictRows[tempRow].Add(item);
-                    startDictRows[tempRow].Add(item);
-                }
-                tempBirds.Clear();
-            }
-        }
-        
-        birdPlace = tempRow.transform.localScale.x / 4;
-        
-        File.WriteAllText(fileSave, "");
-        StreamWriter fileStream = new StreamWriter(fileSave, true);
-        foreach (var (k, l) in dictRows)
-        {
-            if (l.Count > 0)
-            {
-                foreach (var v in l)
-                    fileStream.Write($"{v.name} ");
-                fileStream.WriteLine();
-            }
-        }
-        fileStream.Close();
-        */
-
         StreamWriter fileStream = new StreamWriter(fileSave, false);
         List<string> strings = new List<string>();
 
@@ -358,7 +334,7 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
         {
             for (int j = 0; j < 4; j++)
             {
-                t = Random.Range(0, strings.Count);
+                t = UnityEngine.Random.Range(0, strings.Count);
                 fileStream.Write($"{strings[t]} ");
                 strings.RemoveAt(t);
             }
@@ -372,7 +348,13 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
         StreamReader fileStream = new StreamReader(fileSave);
         for (int i = 0; i < countRows; i++)
         {
-            tempRow = Instantiate(birdRow, new Vector3(-0.4f, 3.2f - i, 0), transform.rotation);
+            if (i % 2 == 0)
+                tempRow = Instantiate(birdRow, new Vector3(-0.5f, 3.2f - i * 0.9f, 0), transform.rotation);
+            else
+            {
+                tempRow = Instantiate(birdRow, new Vector3(0.5f, 3.2f - i * 0.9f, 0), transform.rotation);
+                tempRow.GetComponentInChildren<SpriteRenderer>().flipX = true;
+            }
             tempRow.name = "Row" + i;
             dictRows.Add(tempRow, new List<GameObject>());
             startDictRows.Add(tempRow, new List<GameObject>());
@@ -404,7 +386,18 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
             {
                 t = 0;
                 foreach (var v in l)
-                    v.transform.position = new Vector3(0.3f + k.transform.position.x + birdPlace * (-2 + t++), k.transform.position.y + 0.3f, 0);
+                {
+                    if (Convert.ToInt16(k.name[3]) % 2 == 0)
+                    {
+                        v.transform.position = new Vector3(0.2f + k.transform.position.x + birdPlace * (-2 + t++), k.transform.position.y + 0.15f, 0);
+                        v.GetComponent<SpriteRenderer>().flipX = false;
+                    }
+                    else
+                    {
+                        v.transform.position = new Vector3(-0.2f + k.transform.position.x + birdPlace * (2 - t++), k.transform.position.y + 0.15f, 0);
+                        v.GetComponent<SpriteRenderer>().flipX = true;
+                    }
+                }
             }
     }
 
@@ -491,9 +484,9 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
         if (levelNumber < 3)
             countRows = 5;
         else if (levelNumber < 10)
-            countRows = Random.Range(6, 8);
+            countRows = UnityEngine.Random.Range(6, 8);
         else
-            countRows = Random.Range(7, 10);
+            countRows = UnityEngine.Random.Range(7, 10);
         File.WriteAllText(fileLevel, $"{++levelNumber} {countRows} {musicOn}");
         CreateLevel();
         StartCoroutine(VictoryEffect());
