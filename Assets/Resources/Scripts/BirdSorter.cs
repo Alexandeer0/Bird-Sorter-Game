@@ -4,14 +4,13 @@ using System.IO;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-using UnityEngine.Advertisements;
 
-public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnityAdsLoadListener, IUnityAdsShowListener
+
+public class BirdSorter : MonoBehaviour
 {
     float birdPlace;
     int t; // temporary variable
     int countRows, levelNumber, musicOn;
-    bool isAdLoaded = false;
     Vector2 ray;
     RaycastHit2D hit;
     GameObject tempRow, hitRow, tempBird;
@@ -19,94 +18,15 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
     Dictionary<GameObject, List<GameObject>> dictRows, startDictRows;
     Dictionary<string, GameObject> allMyGameObjects;
     public GameObject[] birdTypes;
-    public GameObject birdRow, victoryText, nextLevelButton, levelCounter, restartButton, square, circle, soundMenu;
+    public GameObject birdRow, victoryText, nextLevelButton, levelCounter, square;
     string fileLevel, fileSave;
     string[] content;
     private AudioSource soundPlayer;
-    public AudioClip backTheme, victoryTheme, birdTapSound, UiTapSound;
-    private string _gameId, _adUnitId;
-    private string _androidAdUnitId = "Interstitial_Android";
-    private GameObject victoryWindow;
-
-
-
-    //////////////////////////////////////////////////////////////////////////
-    //////////                  Ads config start here               //////////
-    //////////////////////////////////////////////////////////////////////////
-
-
-
-    public void InitializeAds()
-    {
-        _gameId = "5857177";
-
-        if (!Advertisement.isInitialized && Advertisement.isSupported)
-        {
-            Advertisement.Initialize(_gameId, true, this);
-        }
-    }
-
-    public void OnInitializationComplete()
-    {
-        Debug.Log("Unity Ads initialization complete.");
-    }
- 
-    public void OnInitializationFailed(UnityAdsInitializationError error, string message)
-    {
-        Debug.Log($"Unity Ads Initialization Failed: {error.ToString()} - {message}");
-    }
-
-    public void LoadAd()
-    {
-        Debug.Log("Loading Ad: " + _adUnitId);
-        Advertisement.Load(_adUnitId, this);
-    }
-
-    public void ShowAd()
-    {
-        // Note that if the ad content wasn't previously loaded, this method will fail
-        Debug.Log("Showing Ad: " + _adUnitId);
-        Advertisement.Show(_adUnitId, this);
-    }
-
-    public void OnUnityAdsAdLoaded(string adUnitId)
-    {
-        Debug.Log("Ad loaded: " + _adUnitId);
-        isAdLoaded = true;
-        soundPlayer.gameObject.GetComponent<SoundObject>().adsCount = 1;
-    }
-
-    public void OnUnityAdsFailedToLoad(string _adUnitId, UnityAdsLoadError error, string message)
-    {
-        Debug.Log($"Error loading Ad Unit: {_adUnitId} - {error.ToString()} - {message}");
-        // Optionally execute code if the Ad Unit fails to load, such as attempting to try again.
-    }
-
-    public void OnUnityAdsShowFailure(string _adUnitId, UnityAdsShowError error, string message)
-    {
-        Debug.Log($"Error showing Ad Unit {_adUnitId}: {error.ToString()} - {message}");
-        // Optionally execute code if the Ad Unit fails to show, such as loading another ad.
-    }
- 
-    public void OnUnityAdsShowStart(string _adUnitId) { }
-    public void OnUnityAdsShowClick(string _adUnitId) { }
-    public void OnUnityAdsShowComplete(string _adUnitId, UnityAdsShowCompletionState showCompletionState) { }
-
-
-
-    //////////////////////////////////////////////////////////////////////////
-    //////////                  Ads config end here                 //////////
-    //////////////////////////////////////////////////////////////////////////
-
-
+    public AudioClip backTheme, victoryTheme;
 
     void Awake()
     {
         Application.targetFrameRate = 60;
-
-        _adUnitId = _androidAdUnitId;
-
-        InitializeAds();
 
         fileLevel = Path.Combine(Application.persistentDataPath, "levels.xml");
         fileSave = Path.Combine(Application.persistentDataPath, "save.xml");
@@ -130,7 +50,6 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
             return;
 
         levelCounter.GetComponent<Text>().text = $"LEVEL {levelNumber}";
-        Random.InitState(levelNumber);
 
         allBirds = new List<GameObject>();
         tempBirds = new List<GameObject>();
@@ -153,25 +72,16 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
             CreateLevel();
         ReadLevel();
         PlaceBirds();
-    }
-
-    void Start()
-    {
-        if (GameObject.FindWithTag("Sound") is null)
+        
+        soundPlayer = GetComponent<AudioSource>();
+        if (musicOn == 1)
         {
-            soundPlayer = Instantiate(soundMenu).GetComponent<AudioSource>();
-            if (musicOn == 1)
-            {
-                soundPlayer.clip = backTheme;
-                soundPlayer.Play();
-            }
-            else
-                musicOn = 0;
+            soundPlayer.clip = backTheme;
+            soundPlayer.Play();
         }
         else
-            soundPlayer = GameObject.FindWithTag("Sound").GetComponent<AudioSource>();
+            musicOn = 0;
 
-        StartCoroutine(CircleHide(true));
     }
 
 
@@ -187,74 +97,70 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
             ray = Camera.main.ScreenToWorldPoint(Input.touches[0].position);
             hit = Physics2D.Raycast(ray, Vector3.forward);
 
-            if (hit)
+            if (currentBirds.Count == 0 && hit.transform.CompareTag("Row"))
             {
-                if (currentBirds.Count == 0 && hit.transform.CompareTag("Row"))
-                {
-                    // if there is birds, select all the similar in a row
-                    tempRow = hit.transform.gameObject;
-                    t = dictRows[tempRow].Count;
-                    if (t > 0)
-                        currentBirds.Add(dictRows[tempRow][t - 1]);
-                    for (int i = t - 1; i > 0; i--)
-                        if (dictRows[hit.transform.gameObject].Count > 0)
-                        {
-                            if (dictRows[tempRow][i].tag == dictRows[tempRow][i - 1].tag)
-                                currentBirds.Add(dictRows[tempRow][i - 1]);
-                            else
-                                break;
-                        }
-
-                    foreach (var v in currentBirds)
+                // if there is birds, select all the similar in a row
+                tempRow = hit.transform.gameObject;
+                t = dictRows[tempRow].Count;
+                if (t > 0)
+                    currentBirds.Add(dictRows[tempRow][t - 1]);
+                for (int i = t - 1; i > 0; i--)
+                    if (dictRows[hit.transform.gameObject].Count > 0)
                     {
-                        v.transform.GetComponent<SpriteRenderer>().color = Color.green;
+                        if (dictRows[tempRow][i].tag == dictRows[tempRow][i - 1].tag)
+                            currentBirds.Add(dictRows[tempRow][i - 1]);
+                        else
+                            break;
                     }
-                }
-                else if (currentBirds.Count > 0 && hit.transform.CompareTag("Row"))
+
+                foreach (var v in currentBirds)
                 {
-                    hitRow = hit.transform.gameObject;
-                    t = dictRows[hitRow].Count;
-
-                    foreach (var v in currentBirds)
-                    {
-                        v.transform.GetComponent<SpriteRenderer>().color = Color.white;
-
-                        if (t < 4 && hitRow != tempRow && (t == 0 || dictRows[hitRow][t - 1].tag == v.tag))
-                        {
-                            dictRows[hitRow].Add(v);
-                            dictRows[tempRow].Remove(v);
-                            StartCoroutine(BirdFly(hitRow, v));
-                            t++;
-                        }
-                    }
-                    currentBirds.Clear();
-
-                    if (dictRows[hitRow].Count == 4 && dictRows[hitRow][0].tag == dictRows[hitRow][1].tag
-                                                    && dictRows[hitRow][1].tag == dictRows[hitRow][2].tag
-                                                    && dictRows[hitRow][2].tag == dictRows[hitRow][3].tag)
-                    {
-                        countRows--;
-                        hitRow.GetComponent<BoxCollider2D>().enabled = false;
-                    }
-                    if (countRows == 2)
-                        Victory();
+                    v.transform.GetComponent<SpriteRenderer>().color = Color.green;
                 }
-                else if (hit.transform.CompareTag("Restart"))
-                {
-                    StopAllCoroutines();
-                    foreach (var v in currentBirds)
-                        v.transform.GetComponent<SpriteRenderer>().color = Color.white;
-                    currentBirds.Clear();
-                    soundPlayer.PlayOneShot(UiTapSound, 0.6f * musicOn);
-                    RestartBirds();
-                }
-                else if (hit.transform.CompareTag("NextLevel"))
-                    StartCoroutine(CircleHide(false));
-
-                else if (hit.transform.CompareTag("Menu"))
-                    SetMusicSettings();
             }
-            else
+            else if (currentBirds.Count > 0 && hit.transform.CompareTag("Row"))
+            {
+                hitRow = hit.transform.gameObject;
+                t = dictRows[hitRow].Count;
+                foreach (var v in currentBirds)
+                {
+                    v.transform.GetComponent<SpriteRenderer>().color = Color.white;
+
+                    if (t < 4 && hitRow != tempRow && (t == 0 || dictRows[hitRow][t - 1].tag == v.tag))
+                    {
+                        dictRows[hitRow].Add(v);
+                        dictRows[tempRow].Remove(v);
+                        StartCoroutine(BirdFly(hitRow, v));
+                        t++;
+                    }
+                }
+                currentBirds.Clear();
+
+                if (dictRows[hitRow].Count == 4 && dictRows[hitRow][0].tag == dictRows[hitRow][1].tag
+                                                && dictRows[hitRow][1].tag == dictRows[hitRow][2].tag
+                                                && dictRows[hitRow][2].tag == dictRows[hitRow][3].tag)
+                {
+                    countRows--;
+                    hitRow.GetComponent<BoxCollider2D>().enabled = false;
+                }
+                if (countRows == 2)
+                    Victory();
+            }
+            else if (hit.transform.CompareTag("Restart"))
+            {
+                StopAllCoroutines();
+                foreach (var v in currentBirds)
+                    v.transform.GetComponent<SpriteRenderer>().color = Color.white;
+                currentBirds.Clear();
+                RestartBirds();
+            }
+            else if (hit.transform.CompareTag("NextLevel"))
+                SceneManager.LoadSceneAsync(SceneManager.GetActiveScene().buildIndex);
+            
+            else if (hit.transform.CompareTag("Menu"))
+                SetMusicSettings();
+            
+            else if (currentBirds.Count > 0)
             {
                 foreach (var v in currentBirds)
                     v.transform.GetComponent<SpriteRenderer>().color = Color.white;
@@ -433,61 +339,24 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
             alpha.color = new Color(0, 0.2f, 0.1f, i);
             yield return null;
         }
-        victoryWindow = Instantiate(victoryText);
+        GameObject victoryWindow = Instantiate(victoryText);
         victoryWindow.transform.localScale = new Vector3(0, 0, 0);
 
-        for (float i = 0; i < 0.55f; i += 0.05f)
+        for (float i = 0; i < 0.75f; i += 0.05f)
         {
             victoryWindow.transform.localScale = new Vector3(i, i, i);
             yield return null;
         }
-        for (float i = 0.55f; i > 0.4f; i -= 0.02f)
+        for (float i = 0.75f; i > 0.7f; i -= 0.05f)
         {
             victoryWindow.transform.localScale = new Vector3(i, i, i);
             yield return null;
-        }
-        /*if (isAdLoaded)
-            ShowAd();*/
-    }
-
-    IEnumerator CircleHide(bool type)
-    {
-        if (type)
-        {
-            for (float i = 1; i > 0; i -= 0.1f)
-            {
-                circle.GetComponent<Image>().fillAmount = i;
-                yield return null;
-            }
-            circle.GetComponent<Image>().fillAmount = 0;
-            
-            if (soundPlayer.gameObject.GetComponent<SoundObject>().adsCount == 3)
-                LoadAd();
-            else
-                soundPlayer.gameObject.GetComponent<SoundObject>().adsCount += 1;
-        }
-        else
-        {
-            for (float i = 0.56f; i > 0; i -= 0.02f)
-            {
-                victoryWindow.transform.localScale = new Vector3(i, i, i);
-                yield return null;
-            }
-            victoryWindow.transform.localScale = new Vector3(0, 0, 0);
-            for (float i = 0; i <= 1; i += 0.1f)
-            {
-                circle.GetComponent<Image>().fillAmount = i;
-                yield return null;
-            }
-            circle.GetComponent<Image>().fillAmount = 1;
-            SceneManager.LoadSceneAsync(SceneManager.GetActiveScene().buildIndex);
         }
     }
 
     void Victory()
     {
-        restartButton.GetComponent<BoxCollider2D>().enabled = false;
-        soundPlayer.PlayOneShot(victoryTheme, musicOn);
+        soundPlayer.PlayOneShot(victoryTheme, musicOn * 0.6f);
         if (levelNumber < 3)
             countRows = 5;
         else if (levelNumber < 10)
