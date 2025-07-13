@@ -19,11 +19,12 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
     Dictionary<GameObject, List<GameObject>> dictRows, startDictRows;
     Dictionary<string, GameObject> allMyGameObjects;
     public GameObject[] birdTypes;
-    public GameObject birdRow, victoryText, nextLevelButton, levelCounter, restartButton, square, circle, soundMenu;
+    public GameObject birdRow, victoryText, nextLevelButton, levelCounter, restartButton, menuButton, square, circle, soundMenu;
     string fileLevel, fileSave;
     string[] content;
     private AudioSource soundPlayer;
     public AudioClip backTheme, victoryTheme, birdTapSound, UiTapSound;
+    public Sprite soundOnS, soundOffS;
     private string _gameId, _adUnitId;
     private string _androidAdUnitId = "Interstitial_Android";
     private GameObject victoryWindow;
@@ -42,7 +43,7 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
 
         if (!Advertisement.isInitialized && Advertisement.isSupported)
         {
-            Advertisement.Initialize(_gameId, true, this);
+            Advertisement.Initialize(_gameId, false, this);
         }
     }
 
@@ -113,10 +114,7 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
 
         // Checking if file exists
         if (!File.Exists(fileLevel))
-        {
             File.WriteAllText(fileLevel, "1 4 1");
-            File.WriteAllText(fileSave, "");
-        }
 
         // Reading file with levels
         content = File.ReadAllText(fileLevel).Trim().Split(" ");
@@ -149,8 +147,11 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
                 allMyGameObjects.Add(tempBird.name, tempBird);
             }
 
-        if (levelNumber == 1)
+        if (!File.Exists(fileSave))
+        {
+            File.WriteAllText(fileSave, "");
             CreateLevel();
+        }
         ReadLevel();
         PlaceBirds();
     }
@@ -166,7 +167,10 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
                 soundPlayer.Play();
             }
             else
+            {
                 musicOn = 0;
+                menuButton.GetComponent<SpriteRenderer>().sprite = soundOffS;
+            }
         }
         else
             soundPlayer = GameObject.FindWithTag("Sound").GetComponent<AudioSource>();
@@ -272,7 +276,7 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
     IEnumerator BirdFly(GameObject hit, GameObject curBird)
     {
         int numBirds = dictRows[hit].Count - 1;
-        Vector3 pos = new Vector3(0.2f + hit.transform.position.x + birdPlace * (-2 + numBirds), hit.transform.position.y + 0.3f, 0);
+        Vector3 pos = new Vector3(0.2f + hit.transform.position.x + birdPlace * (-2 + numBirds), hit.transform.position.y + 0.2f, 0);
         while (Vector3.Distance(pos, curBird.transform.position) > 0.1f)
         {
             curBird.transform.Translate(new Vector3(pos.x - curBird.transform.position.x, pos.y - curBird.transform.position.y, 0).normalized * Time.deltaTime * 5);
@@ -297,7 +301,7 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
                     foreach (var v in l)
                     {
                         dictRows[k].Add(v);
-                        v.transform.position = new Vector3(0.3f + k.transform.position.x + birdPlace * (-2 + t++), k.transform.position.y + 0.3f, 0);
+                        v.transform.position = new Vector3(0.3f + k.transform.position.x + birdPlace * (-2 + t++), k.transform.position.y + 0.2f, 0);
                     }
                 }
             }
@@ -305,49 +309,7 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
     }
 
     void CreateLevel()
-    {   
-        /*
-        for (int i = 0; i < countRows; i++)
-        {
-            tempRow = Instantiate(birdRow, new Vector3(-0.4f, 3.2f - i, 0), transform.rotation);
-            tempRow.name = "Row" + i;
-            dictRows.Add(tempRow, new List<GameObject>());
-            startDictRows.Add(tempRow, new List<GameObject>());
-            if (i < countRows - 2)
-            {
-                allMyGameObjects.Add(tempRow.name, tempRow);
-                for (int j = 0; j < 4; j++)
-                {
-                    // creating temporary birds list for current row, then deleting used birds from first list
-                    t = Random.Range(0, allBirds.Count);
-                    tempBirds.Add(allBirds[t]);
-                    allBirds.RemoveAt(t);
-                }
-                foreach (var item in tempBirds)
-                {
-                    dictRows[tempRow].Add(item);
-                    startDictRows[tempRow].Add(item);
-                }
-                tempBirds.Clear();
-            }
-        }
-        
-        birdPlace = tempRow.transform.localScale.x / 4;
-        
-        File.WriteAllText(fileSave, "");
-        StreamWriter fileStream = new StreamWriter(fileSave, true);
-        foreach (var (k, l) in dictRows)
-        {
-            if (l.Count > 0)
-            {
-                foreach (var v in l)
-                    fileStream.Write($"{v.name} ");
-                fileStream.WriteLine();
-            }
-        }
-        fileStream.Close();
-        */
-
+    {
         StreamWriter fileStream = new StreamWriter(fileSave, false);
         List<string> strings = new List<string>();
 
@@ -372,7 +334,7 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
         StreamReader fileStream = new StreamReader(fileSave);
         for (int i = 0; i < countRows; i++)
         {
-            tempRow = Instantiate(birdRow, new Vector3(-0.4f, 3.2f - i, 0), transform.rotation);
+            tempRow = Instantiate(birdRow, new Vector3(-0.4f, 3.2f - i * 0.85f, 0), transform.rotation);
             tempRow.name = "Row" + i;
             dictRows.Add(tempRow, new List<GameObject>());
             startDictRows.Add(tempRow, new List<GameObject>());
@@ -404,7 +366,7 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
             {
                 t = 0;
                 foreach (var v in l)
-                    v.transform.position = new Vector3(0.3f + k.transform.position.x + birdPlace * (-2 + t++), k.transform.position.y + 0.3f, 0);
+                    v.transform.position = new Vector3(0.3f + k.transform.position.x + birdPlace * (-2 + t++), k.transform.position.y + 0.2f, 0);
             }
     }
 
@@ -415,11 +377,13 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
             musicOn = 1;
             soundPlayer.clip = backTheme;
             soundPlayer.Play();
+            menuButton.GetComponent<SpriteRenderer>().sprite = soundOnS;
         }
         else
         {
             musicOn = 0;
             soundPlayer.clip = null;
+            menuButton.GetComponent<SpriteRenderer>().sprite = soundOffS;
         }
         // Saving music settings
         File.WriteAllText(fileLevel, $"{levelNumber} {countRows} {musicOn}");
@@ -446,8 +410,9 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
             victoryWindow.transform.localScale = new Vector3(i, i, i);
             yield return null;
         }
-        /*if (isAdLoaded)
-            ShowAd();*/
+        if (isAdLoaded)
+            ShowAd();
+            
     }
 
     IEnumerator CircleHide(bool type)
@@ -493,7 +458,7 @@ public class BirdSorter : MonoBehaviour, IUnityAdsInitializationListener, IUnity
         else if (levelNumber < 10)
             countRows = Random.Range(6, 8);
         else
-            countRows = Random.Range(7, 10);
+            countRows = Random.Range(7, 11);
         File.WriteAllText(fileLevel, $"{++levelNumber} {countRows} {musicOn}");
         CreateLevel();
         StartCoroutine(VictoryEffect());
